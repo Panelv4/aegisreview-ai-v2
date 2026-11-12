@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .engine.analyzer import ENGINE_VERSION, scan_path
+from .engine.baselines import BaselineError, BaselineFile, apply_baseline
 from .engine.exporters import export
 
 
@@ -41,6 +42,15 @@ def main(argv: list[str] | None = None) -> int:
                     help="clone and scan a remote repository (github/gitlab/bitbucket/codeberg)")
     ap.add_argument("--include-docs", action="store_true",
                     help="also scan docs/examples/vendored code")
+    ap.add_argument("--baseline", metavar="FILE",
+                    help="only report findings not recorded in this baseline file")
+    ap.add_argument("--write-baseline", metavar="FILE",
+                    help="record the current findings as accepted, then exit 0")
+    ap.add_argument("--baseline-min-severity", default="low",
+                    choices=["critical", "high", "medium", "low", "info"],
+                    help="lowest severity to include when writing a baseline (default: low)")
+    ap.add_argument("--baseline-reason", default="",
+                    help="note stored with each baselined finding")
     args = ap.parse_args(argv)
 
     if args.repo:
@@ -67,6 +77,40 @@ def main(argv: list[str] | None = None) -> int:
         result = scan_path(target, include_tests=args.include_tests,
                            include_docs=args.include_docs)
         label = str(target)
+
+    baselined: list = []
+    if args.write_baseline:
+        try:
+            bl = BaselineFile.from_result(
+                result, source=label,
+                min_severity=args.baseline_min_severity,
+                reason=args.baseline_reason,
+            )
+            written = bl.save(args.write_baseline)
+        except OSError as exc:
+            print(f"error: cannot write baseline: {exc}", file=sys.stderr)
+            return 2
+
+        if any(v is not None for v in (args.max_critical, args.max_high,
+                                       args.max_medium, args.min_score)):
+            print(f"{YELLOW}note{RESET}: --write-baseline overrides the policy gate",
+                  file=sys.stderr)
+        print(f"{GREEN}wrote baseline{RESET} {written} "
+              f"({len(bl)} finding{'s' if len(bl) != 1 else ''} accepted)")
+        return 0
+
+    if args.baseline:
+        try:
+            bl = BaselineFile.load(args.baseline)
+        except BaselineError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        new, baselined = apply_baseline(result.findings, bl)
+        # Drop accepted findings before scoring, reporting and the gate: a known
+        # issue must not fail a build twice. `aegis stats` keeps the full picture
+        # because it scans without a baseline.
+        for report in result.files:
+            report.findings = [f for f in report.findings if f.fingerprint not in bl]
 
     if args.format != "text":
         title_name = label.rsplit("/", 1)[-1]
@@ -101,6 +145,9 @@ def main(argv: list[str] | None = None) -> int:
         print(hr())
         print(f"  {BOLD}Score {result.score}/100{RESET} (grade {result.grade}) · "
               f"{result.verdict}")
+        if args.baseline and baselined:
+            print(f"  {DIM}{len(baselined)} accepted finding"
+                  f"{'s' if len(baselined) != 1 else ''} hidden by baseline{RESET}")
         print(f"  {bar or 'no findings'}")
         print(hr())
 

@@ -1,0 +1,4 @@
+flask>=2
+requests
+pyyaml
+pyjwt==2.8.0

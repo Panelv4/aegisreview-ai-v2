@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Test suite
+        run: python -m pytest tests/ -q
+      - name: Engine smoke test
+        run: python -m aegis samples/vulnerable-app -f sarif -o /tmp/aegis.sarif
+      - name: Dogfood — scan our own source
+        run: python -m aegis aegis --format sarif -o /tmp/self.sarif || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sarif
+          path: /tmp/*.sarif

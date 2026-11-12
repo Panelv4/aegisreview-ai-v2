@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AegisReview — Static Security Analysis</title>
+<meta name="description" content="Deterministic static security analysis: 53 rules, taint traces, risk scoring, SARIF export.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%2322d3ee' d='M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z'/></svg>">
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+
+<!-- ==================== AUTH ==================== -->
+<div id="auth-screen" class="auth-wrap hide">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#04121b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3 5 6v5.5c0 4.4 2.9 8.2 7 9.5 4.1-1.3 7-5.1 7-9.5V6l-7-3z"/><path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">AegisReview</div>
+        <div class="brand-sub">static security analysis</div>
+      </div>
+    </div>
+
+    <h1 id="auth-title" class="auth">Sign in</h1>
+    <div class="sub" id="auth-sub">Continue to your security workspace.</div>
+
+    <div class="err-msg" id="auth-error"></div>
+
+    <form id="auth-form">
+      <div class="field hide" id="name-field">
+        <label for="auth-name">Full name</label>
+        <input id="auth-name" type="text" autocomplete="name" placeholder="Ada Lovelace">
+      </div>
+      <div class="field">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" type="email" autocomplete="email" placeholder="you@company.com" required>
+      </div>
+      <div class="field">
+        <label for="auth-password">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required minlength="8">
+      </div>
+      <button class="btn btn-primary" type="submit" id="auth-submit" style="width:100%;padding:11px">Sign in</button>
+    </form>
+
+    <div class="auth-switch">
+      <span id="auth-switch-text">No account?</span>
+      <a href="#" id="auth-switch-link">Create one</a>
+    </div>
+
+    <div class="demo-box">
+      Demo account — <code>demo@aegis.dev</code> / <code>aegis-demo-2024</code>
+      <div class="mt-8"><a href="#" id="fill-demo">Fill credentials</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<div class="shell hide" id="app">
+
+  <!-- rail -->
+  <nav class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#04121b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3 5 6v5.5c0 4.4 2.9 8.2 7 9.5 4.1-1.3 7-5.1 7-9.5V6l-7-3z"/><path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">AegisReview</div>
+        <div class="brand-sub">v2.0</div>
+      </div>
+    </div>
+
+    <div class="nav-label">Workspace</div>
+    <div class="nav-item" data-view="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Overview
+    </div>
+    <div class="nav-item" data-view="scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><circle cx="12" cy="12" r="3.2"/></svg>
+      New scan
+    </div>
+    <div class="nav-item" data-view="findings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      Findings
+    </div>
+    <div class="nav-item" data-view="projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+      Projects
+    </div>
+
+    <div class="nav-label">Reference</div>
+    <div class="nav-item" data-view="rules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+      Rule catalog
+    </div>
+    <div class="nav-item" data-view="api">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m8 9-3 3 3 3M16 9l3 3-3 3M13.5 5l-3 14"/></svg>
+      API &amp; CI
+    </div>
+
+    <div class="nav-spacer"></div>
+
+    <div class="user-card">
+      <div class="avatar" id="user-avatar">?</div>
+      <div class="user-meta">
+        <div class="user-name" id="user-name">—</div>
+        <div class="user-role" id="user-role">user</div>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="logout" title="Sign out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 17l5-5-5-5M20 12H9M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- main -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="page-title" id="page-title">Overview</div>
+        <div class="page-sub" id="page-sub">Security posture across your projects</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="pill-toggle" id="theme-toggle">
+          <button data-theme-set="dark" class="on">Dark</button>
+          <button data-theme-set="light">Light</button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="quick-scan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          New scan
+        </button>
+      </div>
+    </header>
+
+    <main id="view"></main>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

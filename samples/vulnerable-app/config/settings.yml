@@ -1,0 +1,7 @@
+database:
+  host: db.internal
+  user: root
+  password: "Pr0duction_Pa55_2024"
+services:
+  stripe_key: "sk_live_EXAMPLE_NOT_A_REAL_KEY"
+  debug: true

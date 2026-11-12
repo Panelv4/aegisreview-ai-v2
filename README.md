@@ -103,7 +103,8 @@ aegis/engine/
 ├── rules.py      53 declarative rules (id, CWE, OWASP, patterns, taint pairs, fix)
 ├── analyzer.py   mask → match → trace → entropy → score
 ├── models.py     Finding / FileReport / ScanResult, scoring
-├── policy.py     CI gate + baselines
+├── baselines.py   baseline files: accept what you have, fail on what is new
+├── policy.py      CI gate + policy budgets
 └── exporters.py  SARIF 2.1.0, Markdown, self-contained HTML
 ```
 
@@ -203,6 +204,55 @@ eval(x)         # aegis:ignore            (whole line)
 Fingerprints hash `rule + path + normalised code`, so an accepted finding keeps
 its identity when lines move and a baseline survives refactors.
 
+Adopting a scanner on an existing codebase means inheriting everything it finds
+on day one. A baseline records what you have already triaged so the gate only
+fails on what is *new*:
+
+```bash
+# once: accept the current state of the codebase
+python -m aegis ./src --write-baseline .aegis-baseline --baseline-reason "pre-existing, tracked in SEC-123"
+
+# from then on: only findings that are not in the baseline are reported,
+# scored, or allowed to fail the build
+python -m aegis ./src --baseline .aegis-baseline --max-critical 0
+```
+
+The file is reviewable JSON — commit it, so waivers live in code review instead
+of in someone's memory:
+
+```json
+{
+  "version": 1,
+  "tool": "aegisreview",
+  "source": "src",
+  "count": 1,
+  "entries": [
+    {
+      "fingerprint": "a1b2c3d4e5f60718",
+      "rule_id": "AEGIS-SQLI-001",
+      "file": "app/models.py",
+      "line": 42,
+      "title": "SQL injection via string-formatted query",
+      "reason": "pre-existing, tracked in SEC-123"
+    }
+  ]
+}
+```
+
+Rules that keep this honest:
+
+- A finding whose **code changes** is new again — a waiver covers the line you
+  accepted, not the file it lives in.
+- Moving the code around does **not** resurrect it; fingerprints ignore line
+  numbers.
+- A baseline cannot hide a finding from `--write-baseline` itself; the snapshot
+  records what the engine sees, including anything a previous baseline hid.
+- Baseline and policy gate compose: `--baseline` filters first, so a build fails
+  only on regressions.
+
+Set `--baseline-min-severity` when you only want to accept the low-grade noise
+and keep criticals visible: `--write-baseline .aegis-baseline --baseline-min-severity medium`.
+
 ---
 
 ## API
@@ -253,7 +303,7 @@ fingerprints for deduplication across runs.
 ## Testing
 
 ```bash
-python -m pytest tests/ -q      # 129 tests
+python -m pytest tests/ -q      # 151 tests
 ```
 
 The suite tests detection *and* precision: every true positive has a
